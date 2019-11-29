@@ -38,28 +38,6 @@ router.get('/open/:user_id/:ts?', async (req, res, next) => {
   }
 });
 
-/* GET users listing. */
-router.get('/gps/:track_id/:lat/:lng/:ts?', async (req, res, next) => {
-  if ( !req.params.track_id /* === undefined */) {
-    return res.status(500).json({message:'no track_id'})
-  }
-
-  const lat = parseFloat(req.params.lat)
-  const lng = parseFloat(req.params.lng)
-  const ts = (!req.params.ts) ? "datetime('now', 'localtime')" : `datetime(${req.params.ts}, 'unixepoch')`
-  try {
-    const db = await dbKick()
-    const sql = `INSERT INTO gps (track_id, ts, lat, lng) VALUES ( ${req.params.track_id}, ${ts}, ${lat}, ${lng} )`
-    // console.log(sql)
-    const ret = await db.run(sql);
-    res.status(200).send('ok')
-  } catch (error) {
-    const ret = { code:error.code, errno: error.errno, message: error.message }
-    console.log(ret)
-    res.status(500).json(ret)
-  }
-});
-
 function getDistanceFromLatLonInKm(lat1,lng1,lat2,lng2) {
   function deg2rad(deg) {
       return deg * (Math.PI/180)
@@ -75,6 +53,39 @@ function getDistanceFromLatLonInKm(lat1,lng1,lat2,lng2) {
 }
 
 /* GET users listing. */
+router.get('/gps/:track_id/:lat/:lng/:ts?', async (req, res, next) => {
+  if ( !req.params.track_id /* === undefined */) {
+    return res.status(500).json({message:'no track_id'})
+  }
+  const track_id = parseInt(req.params.track_id)
+
+  const lat = parseFloat(req.params.lat)
+  const lng = parseFloat(req.params.lng)
+  const ts = (!req.params.ts) ? "datetime('now', 'localtime')" : `datetime(${req.params.ts}, 'unixepoch')`
+  try {
+    const db = await dbKick()
+    let sql = `INSERT INTO gps (track_id, ts, lat, lng) VALUES ( ${track_id}, ${ts}, ${lat}, ${lng} )`
+    let ret = await db.run(sql);
+
+    const last = await db.get(`SELECT distance, lat, lng FROM track WHERE id = ${track_id}`)
+    let total_distance = diff_distance = 0
+    // console.log('### last_track ###',last.distance, last.lat, last.lng)
+    if (last.distance || last.lat || last.lng) {
+      diff_distance = getDistanceFromLatLonInKm(last.lat, last.lng, lat, lng)
+      // console.log('### diff_distance ###', lat, lng, diff_distance)
+      total_distance = last.distance + diff_distance
+    }
+    sql = `UPDATE track SET distance = ${total_distance}, lat = ${lat}, lng = ${lng} WHERE id = ${track_id}`
+    ret = await db.run(sql);
+    res.json({'distance':total_distance})
+  } catch (error) {
+    const ret = { code:error.code, errno: error.errno, message: error.message }
+    console.log(ret)
+    res.status(500).json(ret)
+  }
+});
+
+/* GET users listing. */
 router.get('/close/:track_id/:lat/:lng/:ts?', async (req, res, next) => {
   if ( !req.params.track_id /* === undefined */) {
     return res.status(500).json({message:'no track_id'})
@@ -88,12 +99,12 @@ router.get('/close/:track_id/:lat/:lng/:ts?', async (req, res, next) => {
     const db = await dbKick()
     let sql = `INSERT INTO gps (track_id, ts, lat, lng) VALUES ( ${track_id}, ${ts}, ${lat}, ${lng} )`
     let ret = await db.run(sql);
-    console.log(sql)
+    // console.log(sql)
     
     getDistanceMeter = async () => {
       let total_meter = 0
       const rows = await db.all(SQL`SELECT lat, lng FROM gps WHERE track_id = ${track_id}`)
-      console.log(' ### rows ###', rows.length)
+      // console.log(' ### rows ###', rows.length)
       if (rows.length) {
         let before = false
         rows.forEach((row) => {
@@ -103,7 +114,7 @@ router.get('/close/:track_id/:lat/:lng/:ts?', async (req, res, next) => {
           before = row
         })
       }
-      console.log(total_meter)
+      // console.log(total_meter)
       return total_meter
     }
     const distance = await getDistanceMeter()
