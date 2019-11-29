@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= title %></title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+  </head>
+  <body>
+    <h1><%= title %></h1>
+    <p>Welcome now : <%= ts %></p>
+    <hr>
+    <form name="asdf" action="/api1/clothes/registry" method="post" enctype="multipart/form-data">
+      <input type="text" name="name" value="">
+      <input type="number" name="price" value="">
+      <input type="text" name="category" value="">
+      <input type="file" name="imgFile">
+      <input type="submit">
+    </form>
+  </body>
+</html>
